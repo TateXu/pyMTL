@@ -2,7 +2,7 @@
 
 import numpy as np
 from pymtl.interfaces.models import BayesMTL
-import pymtl.interfaces.mtl_priors as priors
+import pymtl.interfaces.priors as priors
 from sklearn import metrics
 from pymtl.misc import numerics
 
