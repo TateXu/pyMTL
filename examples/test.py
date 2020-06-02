@@ -1,6 +1,6 @@
 import pickle
 import numpy as np
-from pymtl.linear_regression import MTLRegression as mtl
+
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -24,6 +24,12 @@ from moabb.pipelines.features import TSSF
 from copy import deepcopy as dc
 from sklearn.model_selection import train_test_split
 import warnings
+
+from pymtl.linear_regression import MTLRegression as mtl
+from pymtl.feature_decomposition import FeatureDecompositionModel as mtl_fd
+
+
+
 warnings.filterwarnings("ignore")
 
 
@@ -34,8 +40,8 @@ def score(clf, X, y, scoring):
     acc = cross_val_score(clf, X, y, cv=cv, scoring=scoring)
     return acc.mean()
 
-def load_data(subject, session):
-    MI = MotorImagery(fmin=8, fmax=32, events=['left_hand', 'right_hand'])
+def load_data(subject, session, fmin=8, fmax=32):
+    MI = MotorImagery(fmin=fmin, fmax=fmax, events=['left_hand', 'right_hand'])
     dataset = MunichMI()  #  BNCI2014001() # 
     X, y, metadata = MI.get_data(dataset, [subject])
     for nr_ses, name_ses in enumerate(np.unique(metadata.session).tolist()):
@@ -48,18 +54,17 @@ file_root = '/home/jxu/File/Code/Git/pyMTL/examples/'
 nr_comp = 6
 pre_load_data = False
 if pre_load_data:
-    all_data = []
-    all_label = []
+    all_data = np.empty((10, 12))
+    all_label = np.empty((10, ))
 
     le = LabelEncoder().fit(["left_hand", "right_hand"])
-    for nr_subj in range(1, 11):
-        X, y = load_data(subject=nr_subj, session=0)
-        y = le.transform(y)
-        all_data.append(X)
-        all_label.append(y)
+    for nr_subj in range(10):
+        for ind_band, band in enumerate(range(7, 29, 2)):
+            X, y = load_data(subject=nr_subj+1, session=0, fmin=band, fmax=band+2)
+            all_data[nr_subj, ind_band] = X
+        all_label[nr_subj] = le.transform(y)
 
     source_data = []
-
 
     for nr_subj in range(10):
         sf = TSSF(clf_str='SVM', func='clf', n_components=nr_comp, decomp='GED', logvar='Cov')
@@ -78,7 +83,10 @@ le = LabelEncoder().fit(["left_hand", "right_hand"])
 acc_mat = np.zeros((10, 11))
 for nr_subj in range(10):
     
-    trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
+    # trained = mtl(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML', estimator='EmpiricalCovariance')
+    trained = mtl_fd(max_prior_iter=1000, prior_conv_tol=0.0001, C=1, C_style='ML')
+    import pdb 
+    pdb.set_trace()
     X_pool = np.delete(dc(source_data), nr_subj, axis=0)
     y_pool = np.delete(dc(label), nr_subj, axis=0)
     trained.fit_multi_task(X_pool, y_pool, verbose=False, n_jobs=1)
